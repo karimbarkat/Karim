@@ -50,8 +50,9 @@ agent runs (on the phone via Termux, or on a small always-on server) — see
 - **PC**: Windows 11 Pro, personal machine.
 - **Network**: Tailscale already in use; both devices can join the same
   tailnet.
-- **Business stack**: Odoo (Karim uses it for CRM/quotations). Probably
-  self-hosted or Odoo.sh — not yet confirmed.
+- **Business stack**: **Odoo Community, self-hosted, reachable only via
+  Tailscale** (no public exposure). The orchestrator host must therefore be
+  on the same tailnet to call Odoo's API.
 - **Messaging**: WhatsApp (personal + presumably business; WhatsApp Business
   account status not yet confirmed).
 - **Building agent**: the Claude Code session preparing this handoff is
@@ -259,26 +260,34 @@ tmux session.
 
 ### Track B
 
-7. **Where does the orchestrator run?** Three options:
-   - **(a) Termux on the phone** — zero extra infrastructure, but phone
-     reliability (battery, OS kills, mobile data, going offline) makes it
-     fragile for customer-facing workflows.
-   - **(b) Small always-on host** (VPS, Pi, NAS, home server) — more
-     reliable, costs ~$5/mo or one-time hardware. Our default
-     recommendation.
-   - **(c) Managed function/runtime** (Cloudflare Workers, Vercel
-     functions, etc.) — scales to zero, no host to maintain, but cold
-     starts and statelessness add complexity for agent workloads.
+7. **Where does the orchestrator run?** Because Odoo is self-hosted behind
+   Tailscale, the orchestrator must be on the tailnet. Options:
+   - **(a) Termux on the phone** — already on the tailnet, zero extra
+     infrastructure, but phone reliability (battery, OS kills, mobile data)
+     is fragile for customer-facing workflows.
+   - **(b) Small always-on host on the tailnet** (Pi, NAS, home mini-PC,
+     or a VPS with Tailscale installed) — reliable, ~$5/mo VPS or one-time
+     hardware. Our default recommendation.
+   - **(c) The Win 11 PC itself** if it's always-on — zero new
+     infrastructure, but couples a business workflow to a personal machine
+     (sleep, updates, reboots).
+   - **(d) Managed function/runtime** (Cloudflare Workers, etc.) plus a
+     **Tailscale subnet router** so the function can reach Odoo through the
+     tailnet. Adds a moving part (the subnet router) but keeps Odoo
+     private.
 
-   Which would you pick and why?
+   Which would you pick and why? Also: is Karim's Win 11 PC always-on
+   enough to be a candidate, or should we assume it isn't?
 
 8. **WhatsApp Business API setup gotchas.** Meta's onboarding for Cloud
    API is famously fiddly (phone number verification, message templates
    needing pre-approval for outbound messages outside the 24-hour customer
    service window, etc.). Any landmines worth flagging up front?
-9. **Odoo API choice — XML-RPC vs REST.** Odoo's classic API is XML-RPC;
-   newer versions/modules expose REST. Any reason to prefer one over the
-   other for an agent driving CRM workflows?
+9. **Odoo API choice — XML-RPC vs REST.** Odoo's classic API is XML-RPC
+   (always available, including on Community). REST endpoints depend on
+   community modules like `muk_rest` or `restapi` — Karim would have to
+   install one. Default plan is XML-RPC since it works out of the box on
+   Community. Any reason to push for REST anyway?
 10. **Cost and rate-limit envelope.** A Claude API call per inbound
     customer message, plus Odoo writes, plus WhatsApp Cloud API sends. At
     what message volume does this start to need batching, queueing, or a
